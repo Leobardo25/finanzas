@@ -113,6 +113,9 @@ export const FinanceProvider = ({ children }) => {
   // Estado de conexión a la nube
   const [isCloudConfigured, setIsCloudConfigured] = useState(() => getFirebaseConfig().isConfigured);
 
+  // CAJA ACTIVA PARA FILTRADO DEL DASHBOARD ('all' | 'general' | 'vaultId')
+  const [activeVaultId, setActiveVaultId] = useState('all');
+
   // Nombres de los socios
   const [partners, setPartnersState] = useState(() => {
     const saved = localStorage.getItem('finanzas_pro_partners');
@@ -265,7 +268,10 @@ export const FinanceProvider = ({ children }) => {
     const updatedVaults = vaults.filter((v) => v.id !== vaultId);
     setVaultsState(updatedVaults);
 
-    // Mover transacciones asociadas a la caja general
+    if (activeVaultId === vaultId) {
+      setActiveVaultId('all');
+    }
+
     setTransactions((prev) =>
       prev.map((t) => (t.vaultId === vaultId ? { ...t, vaultId: 'general' } : t))
     );
@@ -278,7 +284,6 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  // Cálculo de Reparto 60% Empresa / 10% Reserva / 30% Bolsa de Trabajo (Socios)
   const calculateProfitDistribution = (netProfit, p1WorkPct = 50) => {
     const profit = Math.max(Number(netProfit) || 0, 0);
     const p1Pct = Math.min(Math.max(Number(p1WorkPct) || 0, 0), 100);
@@ -303,7 +308,6 @@ export const FinanceProvider = ({ children }) => {
     };
   };
 
-  // Ejecutar y Registrar una Liquidación de Ganancias
   const executeDistribution = ({ vaultId, vaultName, netProfit, p1WorkPct, notes }) => {
     const calc = calculateProfitDistribution(netProfit, p1WorkPct);
     const record = {
@@ -387,7 +391,7 @@ export const FinanceProvider = ({ children }) => {
       category: newTx.category || 'Otros',
       description: newTx.description || '',
       paymentMethod: newTx.paymentMethod || 'Efectivo 💵',
-      vaultId: newTx.vaultId || 'general'
+      vaultId: newTx.vaultId || activeVaultId === 'all' ? 'general' : activeVaultId
     };
 
     setTransactions((prev) => [transactionItem, ...prev]);
@@ -452,40 +456,49 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  // Cálculos de Totales y Cajas
-  const totalIncome = transactions
+  // CÁLCULOS DINÁMICOS SEGÚN CAJA ACTIVA ('all' vs 'vaultId')
+  const filteredTransactions = transactions.filter((t) => {
+    if (activeVaultId === 'all') return true;
+    return (t.vaultId || 'general') === activeVaultId;
+  });
+
+  const totalIncome = filteredTransactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
-  const totalExpense = transactions
+  const totalExpense = filteredTransactions
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
-  const currentBalance = initialCapital + totalIncome - totalExpense;
+  // Balance disponible (si es 'all' incluye capital inicial; si es una caja específica es el netProfit de esa caja)
+  const currentBalance = activeVaultId === 'all'
+    ? initialCapital + totalIncome - totalExpense
+    : totalIncome - totalExpense;
+
   const netCashFlow = totalIncome - totalExpense;
 
-  // Estadísticas clave por caja
+  const activeVaultObj = vaults.find((v) => v.id === activeVaultId);
+
   const getVaultSummary = (vaultId) => {
-    const vaultTxs = transactions.filter((t) => t.vaultId === vaultId || (!t.vaultId && vaultId === 'general'));
+    const vaultTxs = transactions.filter((t) => (t.vaultId || 'general') === vaultId);
     const income = vaultTxs.filter((t) => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
     const expense = vaultTxs.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
     const netProfit = income - expense;
     return { income, expense, netProfit, count: vaultTxs.length };
   };
 
-  const highestIncome = transactions
+  const highestIncome = filteredTransactions
     .filter((t) => t.type === 'income')
     .reduce((max, t) => (t.amount > (max?.amount || 0) ? t : max), null);
 
-  const highestExpense = transactions
+  const highestExpense = filteredTransactions
     .filter((t) => t.type === 'expense')
     .reduce((max, t) => (t.amount > (max?.amount || 0) ? t : max), null);
 
-  const avgExpense = transactions.filter((t) => t.type === 'expense').length > 0
-    ? totalExpense / transactions.filter((t) => t.type === 'expense').length
+  const avgExpense = filteredTransactions.filter((t) => t.type === 'expense').length > 0
+    ? totalExpense / filteredTransactions.filter((t) => t.type === 'expense').length
     : 0;
 
-  // Formateador
   const formatMoney = (val) => {
     const num = Number(val) || 0;
     const formatted = new Intl.NumberFormat('es-CR', {
@@ -499,7 +512,6 @@ export const FinanceProvider = ({ children }) => {
     return `${currency} ${formatted}`;
   };
 
-  // Exportar / Importar
   const exportDataJSON = () => {
     const data = {
       initialCapital,
@@ -589,6 +601,9 @@ export const FinanceProvider = ({ children }) => {
   return (
     <FinanceContext.Provider
       value={{
+        activeVaultId,
+        setActiveVaultId,
+        activeVaultObj,
         initialCapital,
         setInitialCapital,
         currency,
@@ -605,7 +620,8 @@ export const FinanceProvider = ({ children }) => {
         distributions,
         calculateProfitDistribution,
         executeDistribution,
-        transactions,
+        transactions: filteredTransactions,
+        allTransactions: transactions,
         addTransaction,
         updateTransaction,
         deleteTransaction,

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FinanceProvider } from './context/FinanceContext';
+import { FinanceProvider, useFinance } from './context/FinanceContext';
 import { Navbar } from './components/Navbar';
 import { SummaryCards } from './components/SummaryCards';
 import { FinancialHealthAlert } from './components/FinancialHealthAlert';
@@ -8,6 +8,7 @@ import { FinancialCharts } from './components/FinancialCharts';
 import { TransactionTable } from './components/TransactionTable';
 import { VaultsManager } from './components/VaultsManager';
 import { ProfitSplitCalculator } from './components/ProfitSplitCalculator';
+import { VaultSelectorBar } from './components/VaultSelectorBar';
 import { TransactionFormModal } from './components/TransactionFormModal';
 import { CapitalModal } from './components/CapitalModal';
 import { SettingsModal } from './components/SettingsModal';
@@ -16,6 +17,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { Sparkles, LayoutDashboard, Package, Scale } from 'lucide-react';
 
 function AppContent() {
+  const { activeVaultId, setActiveVaultId } = useFinance();
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'vaults' | 'split'
   const [selectedVaultForDistribution, setSelectedVaultForDistribution] = useState(null);
 
@@ -63,7 +65,7 @@ function AppContent() {
               </h2>
             </div>
             <p className="text-xs text-slate-400">
-              Gestión de fondos, cajas por proyecto y repartos de ganancias (60/10/30) entre socios.
+              Fondo general, cajas por proyecto y repartos de ganancias (60/10/30) entre socios.
             </p>
           </div>
 
@@ -107,22 +109,30 @@ function AppContent() {
           </div>
         </div>
 
-        {/* TAB 1: DASHBOARD GENERAL */}
+        {/* TAB 1: DASHBOARD GENERAL CON SELECTOR DE CAJAS */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 sm:space-y-8 animate-fadeIn">
-            {/* Alerta de Salud Financiera & Límite de Gasto */}
+            
+            {/* BARRA DE SELECCIÓN DE CAJA / PROYECTO (PILLS CON SCROLL MÓVIL) */}
+            <VaultSelectorBar
+              activeVaultId={activeVaultId}
+              setActiveVaultId={setActiveVaultId}
+              onOpenCreateVault={() => setActiveTab('vaults')}
+            />
+
+            {/* Alerta de Salud Financiera */}
             <FinancialHealthAlert onOpenSettingsModal={handleOpenSettingsModal} />
 
-            {/* Cards de Métricas Principales */}
+            {/* Cards de Métricas (Filtradas dinámicamente por la caja activa) */}
             <SummaryCards onOpenCapitalModal={handleOpenCapitalModal} />
 
             {/* Barra de Estadísticas Rápidas */}
             <QuickStatsBar />
 
-            {/* Gráficos de Flujo y Categorías */}
+            {/* Gráficos de Flujo y Categorías (Filtrados por la caja activa con corrección táctil) */}
             <FinancialCharts />
 
-            {/* Tabla de Movimientos / Apuntes */}
+            {/* Tabla de Movimientos (Filtrada por la caja activa) */}
             <TransactionTable onOpenTransactionModal={handleOpenTransactionModal} />
           </div>
         )}
