@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { useFinance, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES, PAYMENT_METHODS } from '../context/FinanceContext';
-import { X, PlusCircle, TrendingUp, TrendingDown, Calendar, Tag, CreditCard, AlignLeft, DollarSign } from 'lucide-react';
+import { X, PlusCircle, TrendingUp, TrendingDown, Calendar, Tag, CreditCard, AlignLeft, Package } from 'lucide-react';
 
 export const TransactionFormModal = ({ isOpen, onClose }) => {
-  const { addTransaction, currency } = useFinance();
+  const { addTransaction, currency, vaults } = useFinance();
 
-  const [type, setType] = useState('expense'); // 'income' | 'expense'
+  const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(DEFAULT_EXPENSE_CATEGORIES[0]);
   const [customCategory, setCustomCategory] = useState('');
   const [description, setDescription] = useState('');
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
+  const [vaultId, setVaultId] = useState('general');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 16));
 
   if (!isOpen) return null;
@@ -36,10 +37,10 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
       category: finalCategory,
       description: description.trim() || (type === 'income' ? 'Ingreso registrado' : 'Gasto registrado'),
       paymentMethod,
+      vaultId,
       date: new Date(date).toISOString()
     });
 
-    // Reset form
     setAmount('');
     setDescription('');
     setCustomCategory('');
@@ -50,10 +51,10 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-lg glass-panel rounded-3xl border border-white/15 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg glass-panel rounded-3xl border border-white/15 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-slate-900/60">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-slate-900/60 shrink-0">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
               type === 'income' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
@@ -78,9 +79,9 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
           
-          {/* TYPE TOGGLE BUTTONS */}
+          {/* TYPE TOGGLE */}
           <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10">
             <button
               type="button"
@@ -109,7 +110,26 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          {/* MONTO / CANTIDAD */}
+          {/* CAJA / PROYECTO DE DESTINO */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-cyan-400" />
+              ¿A qué Caja o Proyecto pertenece este dinero?
+            </label>
+            <select
+              value={vaultId}
+              onChange={(e) => setVaultId(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-900/90 border border-white/15 focus:border-cyan-500 rounded-2xl text-sm font-medium text-white outline-none"
+            >
+              {vaults.map((v) => (
+                <option key={v.id} value={v.id} className="bg-slate-900 text-slate-100">
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* MONTO */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
               Monto / Cantidad de Dinero ({currency})
@@ -126,7 +146,7 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
                 required
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full pl-12 pr-4 py-3.5 bg-slate-900/90 border border-white/15 focus:border-emerald-500 rounded-2xl text-xl font-bold text-white font-mono-num outline-none transition-all placeholder:text-slate-600 focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-900/90 border border-white/15 focus:border-emerald-500 rounded-2xl text-xl font-bold text-white font-mono-num outline-none transition-all placeholder:text-slate-600"
               />
             </div>
           </div>
@@ -135,12 +155,12 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
               <Tag className="w-3.5 h-3.5 text-emerald-400" />
-              ¿En qué gastaste o de dónde entra? (Categoría)
+              Categoría
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-900/90 border border-white/15 focus:border-emerald-500 rounded-2xl text-sm font-medium text-white outline-none transition-all"
+              className="w-full px-4 py-3 bg-slate-900/90 border border-white/15 focus:border-emerald-500 rounded-2xl text-sm font-medium text-white outline-none"
             >
               {categoriesList.map((cat) => (
                 <option key={cat} value={cat} className="bg-slate-900 text-slate-100">
@@ -155,7 +175,7 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
             {category === 'OTRO_CUSTOM' && (
               <input
                 type="text"
-                placeholder="Escribe el nombre de la nueva categoría"
+                placeholder="Nombre de categoría personalizada"
                 value={customCategory}
                 onChange={(e) => setCustomCategory(e.target.value)}
                 className="mt-2.5 w-full px-4 py-2.5 bg-slate-900/90 border border-amber-500/40 rounded-xl text-sm text-white outline-none"
@@ -163,7 +183,7 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
             )}
           </div>
 
-          {/* CONCEPTO / DESCRIPCIÓN */}
+          {/* DESCRIPCIÓN */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
               <AlignLeft className="w-3.5 h-3.5 text-emerald-400" />
@@ -171,14 +191,14 @@ export const TransactionFormModal = ({ isOpen, onClose }) => {
             </label>
             <input
               type="text"
-              placeholder="Ej: Compra de bolsas, Factura #102, Pago cliente Juan"
+              placeholder="Ej: Depósito inicial para portón, Pago pauta Facebook"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-900/90 border border-white/15 focus:border-emerald-500 rounded-2xl text-sm text-white outline-none transition-all placeholder:text-slate-500"
+              className="w-full px-4 py-3 bg-slate-900/90 border border-white/15 focus:border-emerald-500 rounded-2xl text-sm text-white outline-none placeholder:text-slate-500"
             />
           </div>
 
-          {/* MÉTODO DE PAGO Y FECHA */}
+          {/* MÉTODO Y FECHA */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">

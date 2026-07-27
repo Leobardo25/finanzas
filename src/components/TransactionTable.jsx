@@ -1,26 +1,33 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { Search, Trash2, Edit3, Download, TrendingUp, TrendingDown, Tag, PlusCircle, CreditCard, Calendar } from 'lucide-react';
+import { Search, Trash2, Edit3, Download, TrendingUp, TrendingDown, Tag, PlusCircle, CreditCard, Calendar, Package } from 'lucide-react';
 import { EditTransactionModal } from './EditTransactionModal';
 
 export const TransactionTable = ({ onOpenTransactionModal }) => {
-  const { transactions, deleteTransaction, formatMoney, exportDataCSV } = useFinance();
+  const { transactions, deleteTransaction, formatMoney, exportDataCSV, vaults } = useFinance();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [filterVault, setFilterVault] = useState('all');
   const [editingTransaction, setEditingTransaction] = useState(null);
 
   // Filtrado de transacciones
   const filteredTransactions = transactions.filter((t) => {
     const matchesType = filterType === 'all' || t.type === filterType;
+    const matchesVault = filterVault === 'all' || (t.vaultId || 'general') === filterVault;
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
       (t.category && t.category.toLowerCase().includes(searchLower)) ||
       (t.description && t.description.toLowerCase().includes(searchLower)) ||
       (t.paymentMethod && t.paymentMethod.toLowerCase().includes(searchLower));
 
-    return matchesType && matchesSearch;
+    return matchesType && matchesVault && matchesSearch;
   });
+
+  const getVaultName = (vId) => {
+    const v = vaults.find((v) => v.id === vId);
+    return v ? v.name : 'Caja General';
+  };
 
   return (
     <div className="glass-panel rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/10 shadow-2xl">
@@ -39,12 +46,28 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
         {/* Filters and Search Bar */}
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
           
+          {/* Vault Selector Filter */}
+          <div className="relative">
+            <select
+              value={filterVault}
+              onChange={(e) => setFilterVault(e.target.value)}
+              className="w-full sm:w-auto px-3 py-2 bg-slate-900/90 border border-white/10 rounded-xl text-xs font-semibold text-cyan-300 outline-none"
+            >
+              <option value="all">📦 Todas las Cajas</option>
+              {vaults.map((v) => (
+                <option key={v.id} value={v.id} className="bg-slate-900 text-white">
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por concepto o categoría..."
+              placeholder="Buscar apunte..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-slate-900/90 border border-white/10 focus:border-emerald-500/50 rounded-xl text-xs text-white outline-none transition-all placeholder:text-slate-500"
@@ -86,7 +109,7 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
             title="Exportar registros a archivo Excel / CSV"
           >
             <Download className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Exportar CSV</span>
+            <span>CSV</span>
           </button>
         </div>
       </div>
@@ -100,20 +123,21 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
               className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 space-y-3 hover:border-white/20 transition-all"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {tx.type === 'income' ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       <TrendingUp className="w-3 h-3" />
                       Ingreso
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
                       <TrendingDown className="w-3 h-3" />
                       Gasto
                     </span>
                   )}
-                  <span className="text-[11px] font-medium text-slate-300 bg-slate-950 px-2 py-0.5 rounded-md border border-white/5 truncate max-w-[140px]">
-                    {tx.category}
+
+                  <span className="text-[10px] text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-500/20 truncate max-w-[130px]">
+                    📦 {getVaultName(tx.vaultId)}
                   </span>
                 </div>
 
@@ -134,9 +158,13 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
               </div>
 
               <div className="flex items-baseline justify-between gap-2 pt-1">
-                <p className="text-xs text-slate-200 font-medium leading-snug">
-                  {tx.description || <span className="text-slate-600 italic">Sin apunte</span>}
-                </p>
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-300 block">{tx.category}</span>
+                  <p className="text-xs text-slate-200 font-medium leading-snug">
+                    {tx.description || <span className="text-slate-600 italic">Sin apunte</span>}
+                  </p>
+                </div>
+
                 <span className={`text-base font-bold font-mono-num shrink-0 ${
                   tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'
                 }`}>
@@ -182,10 +210,10 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
             <thead>
               <tr className="text-slate-400 border-b border-white/10 font-['Outfit'] uppercase text-[11px] tracking-wider">
                 <th className="py-3.5 px-4 font-bold">Tipo</th>
+                <th className="py-3.5 px-4 font-bold">Caja / Encargo</th>
                 <th className="py-3.5 px-4 font-bold">Fecha / Hora</th>
                 <th className="py-3.5 px-4 font-bold">Categoría</th>
                 <th className="py-3.5 px-4 font-bold">Concepto / Apunte</th>
-                <th className="py-3.5 px-4 font-bold">Método</th>
                 <th className="py-3.5 px-4 font-bold text-right">Monto</th>
                 <th className="py-3.5 px-4 font-bold text-center">Acciones</th>
               </tr>
@@ -208,6 +236,14 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
                     )}
                   </td>
 
+                  {/* Caja / Proyecto */}
+                  <td className="py-3.5 px-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded-lg border border-cyan-500/20 font-medium">
+                      <Package className="w-3 h-3 text-cyan-400" />
+                      {getVaultName(tx.vaultId)}
+                    </span>
+                  </td>
+
                   <td className="py-3.5 px-4 text-slate-400 whitespace-nowrap">
                     {new Date(tx.date).toLocaleDateString('es-CR', {
                       day: '2-digit',
@@ -226,13 +262,6 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
 
                   <td className="py-3.5 px-4 text-slate-300 max-w-xs truncate">
                     {tx.description || <span className="text-slate-600 italic">Sin apunte</span>}
-                  </td>
-
-                  <td className="py-3.5 px-4 text-slate-400 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-300 bg-slate-900/60 px-2 py-0.5 rounded-md border border-white/5">
-                      <CreditCard className="w-3 h-3 text-cyan-400" />
-                      {tx.paymentMethod}
-                    </span>
                   </td>
 
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
@@ -268,13 +297,13 @@ export const TransactionTable = ({ onOpenTransactionModal }) => {
           </table>
         ) : (
           <div className="py-12 text-center text-slate-500">
-            <p className="text-sm font-medium text-slate-400 mb-3">No hay movimientos registrados.</p>
+            <p className="text-sm font-medium text-slate-400 mb-3">No hay movimientos registrados con los filtros actuales.</p>
             <button
               onClick={onOpenTransactionModal}
               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Registrar Primer Movimiento</span>
+              <span>Registrar Movimiento</span>
             </button>
           </div>
         )}

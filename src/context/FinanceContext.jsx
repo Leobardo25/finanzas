@@ -21,12 +21,15 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
   'Software y Suscripciones',
   'Alimentación / Comida',
   'Mantenimiento / Reparaciones',
+  'Materiales de Proyecto / Encargo',
+  'Mano de Obra Directa',
   'Otros Gastos'
 ];
 
 export const DEFAULT_INCOME_CATEGORIES = [
   'Ventas de Productos',
   'Prestación de Servicios',
+  'Cobro de Encargo / Proyecto',
   'Inversiones',
   'Cobro de Comisiones',
   'Reembolsos / Devoluciones',
@@ -41,32 +44,52 @@ export const PAYMENT_METHODS = [
   'Otro 🔄'
 ];
 
+const DEFAULT_VAULTS = [
+  {
+    id: 'general',
+    name: 'Caja Principal / Ventas Generales',
+    description: 'Operación diaria y ventas continuas de la empresa',
+    isDefault: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'proyecto-gymnasius',
+    name: 'Proyecto Gymnasius',
+    description: 'Encargo de sistema y materiales para Gymnasius',
+    isDefault: false,
+    createdAt: new Date().toISOString()
+  }
+];
+
 const INITIAL_DEMO_TRANSACTIONS = [
   {
     id: 'demo-1',
     type: 'income',
-    amount: 150000,
-    category: 'Ventas de Productos',
-    description: 'Venta inicial de inventario cliente frecuente',
-    paymentMethod: 'SINPE Móvil 📱',
+    amount: 735000,
+    category: 'Cobro de Encargo / Proyecto',
+    description: 'Depósito inicial para desarrollo de sistema y materiales',
+    paymentMethod: 'Transferencia Bancaria 🏦',
+    vaultId: 'proyecto-gymnasius',
     date: new Date(Date.now() - 86400000 * 3).toISOString()
   },
   {
     id: 'demo-2',
     type: 'expense',
-    amount: 45000,
-    category: 'Servicios (Luz/Agua/Internet)',
-    description: 'Pago mensual de Internet de alta velocidad',
-    paymentMethod: 'Transferencia Bancaria 🏦',
+    amount: 90000,
+    category: 'Publicidad y Marketing',
+    description: 'Pago mensual de pauta publicitaria',
+    paymentMethod: 'Tarjeta de Débito/Crédito 💳',
+    vaultId: 'proyecto-gymnasius',
     date: new Date(Date.now() - 86400000 * 2).toISOString()
   },
   {
     id: 'demo-3',
     type: 'expense',
-    amount: 28000,
-    category: 'Insumos y Mercadería',
-    description: 'Compra de bolsas y empaques',
+    amount: 45000,
+    category: 'Materiales de Proyecto / Encargo',
+    description: 'Compra de insumos y cajas',
     paymentMethod: 'Efectivo 💵',
+    vaultId: 'general',
     date: new Date(Date.now() - 86400000 * 1).toISOString()
   }
 ];
@@ -90,7 +113,31 @@ export const FinanceProvider = ({ children }) => {
   // Estado de conexión a la nube
   const [isCloudConfigured, setIsCloudConfigured] = useState(() => getFirebaseConfig().isConfigured);
 
-  // Cargar estado inicial desde localStorage
+  // Nombres de los socios
+  const [partners, setPartnersState] = useState(() => {
+    const saved = localStorage.getItem('finanzas_pro_partners');
+    return saved ? JSON.parse(saved) : { partner1: 'Socio 1 (Vos)', partner2: 'Socio 2 (Tu Socio)' };
+  });
+
+  // Reserva de Capital Acumulado (10%)
+  const [capitalReserves, setCapitalReservesState] = useState(() => {
+    const saved = localStorage.getItem('finanzas_pro_reserves');
+    return saved !== null ? Number(saved) : 73500;
+  });
+
+  // Cajas / Proyectos Específicos
+  const [vaults, setVaultsState] = useState(() => {
+    const saved = localStorage.getItem('finanzas_pro_vaults');
+    return saved ? JSON.parse(saved) : DEFAULT_VAULTS;
+  });
+
+  // Histórico de Liquidaciones / Repartos
+  const [distributions, setDistributionsState] = useState(() => {
+    const saved = localStorage.getItem('finanzas_pro_distributions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Cargar estado inicial
   const [initialCapital, setInitialCapitalState] = useState(() => {
     const saved = localStorage.getItem('finanzas_pro_capital');
     return saved !== null ? Number(saved) : 500000;
@@ -117,36 +164,30 @@ export const FinanceProvider = ({ children }) => {
     return INITIAL_DEMO_TRANSACTIONS;
   });
 
-  // Suscripción a Firebase Firestore en tiempo real (si está configurado)
+  // Listener Firebase Firestore
   useEffect(() => {
     const { isConfigured } = getFirebaseConfig();
     setIsCloudConfigured(isConfigured);
 
     if (isConfigured) {
-      // Suscribirse a cambios en la nube
       const unsubscribe = subscribeToCloudTransactions(
         (cloudDocs) => {
           if (cloudDocs && cloudDocs.length > 0) {
             setTransactions(cloudDocs);
           }
         },
-        (err) => {
-          console.error('Error en Firebase listener:', err);
-        }
+        (err) => console.error(err)
       );
 
-      // Cargar ajustes remotos
       getCloudSettings().then((remoteSettings) => {
         if (remoteSettings) {
-          if (typeof remoteSettings.initialCapital === 'number') {
-            setInitialCapitalState(remoteSettings.initialCapital);
-          }
-          if (remoteSettings.currency) {
-            setCurrencyState(remoteSettings.currency);
-          }
-          if (typeof remoteSettings.monthlyExpenseLimit === 'number') {
-            setMonthlyExpenseLimitState(remoteSettings.monthlyExpenseLimit);
-          }
+          if (typeof remoteSettings.initialCapital === 'number') setInitialCapitalState(remoteSettings.initialCapital);
+          if (remoteSettings.currency) setCurrencyState(remoteSettings.currency);
+          if (typeof remoteSettings.monthlyExpenseLimit === 'number') setMonthlyExpenseLimitState(remoteSettings.monthlyExpenseLimit);
+          if (remoteSettings.vaults) setVaultsState(remoteSettings.vaults);
+          if (remoteSettings.partners) setPartnersState(remoteSettings.partners);
+          if (typeof remoteSettings.capitalReserves === 'number') setCapitalReservesState(remoteSettings.capitalReserves);
+          if (remoteSettings.distributions) setDistributionsState(remoteSettings.distributions);
         }
       });
 
@@ -156,7 +197,7 @@ export const FinanceProvider = ({ children }) => {
     }
   }, [isCloudConfigured]);
 
-  // Sincronización con localStorage
+  // Sincronización localStorage
   useEffect(() => {
     localStorage.setItem('finanzas_pro_capital', initialCapital.toString());
   }, [initialCapital]);
@@ -173,13 +214,150 @@ export const FinanceProvider = ({ children }) => {
     localStorage.setItem('finanzas_pro_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
-  // Acciones
+  useEffect(() => {
+    localStorage.setItem('finanzas_pro_vaults', JSON.stringify(vaults));
+  }, [vaults]);
+
+  useEffect(() => {
+    localStorage.setItem('finanzas_pro_partners', JSON.stringify(partners));
+  }, [partners]);
+
+  useEffect(() => {
+    localStorage.setItem('finanzas_pro_reserves', capitalReserves.toString());
+  }, [capitalReserves]);
+
+  useEffect(() => {
+    localStorage.setItem('finanzas_pro_distributions', JSON.stringify(distributions));
+  }, [distributions]);
+
+  // Acciones Cajas y Socios
+  const setPartners = (partnerObj) => {
+    setPartnersState(partnerObj);
+    addToast('Nombres de los socios actualizados', 'info', 'Configuración de Socios');
+    if (isCloudConfigured) {
+      saveCloudSettings({ initialCapital, currency, monthlyExpenseLimit, vaults, partners: partnerObj, capitalReserves, distributions });
+    }
+  };
+
+  const addVault = ({ name, description }) => {
+    const newVault = {
+      id: 'vault-' + Date.now().toString(36),
+      name: name.trim(),
+      description: description.trim(),
+      isDefault: false,
+      createdAt: new Date().toISOString()
+    };
+    const updatedVaults = [...vaults, newVault];
+    setVaultsState(updatedVaults);
+    addToast(`Caja/Proyecto "${newVault.name}" creada`, 'success', 'Nueva Caja de Proyecto');
+    if (isCloudConfigured) {
+      saveCloudSettings({ initialCapital, currency, monthlyExpenseLimit, vaults: updatedVaults, partners, capitalReserves, distributions });
+    }
+    return newVault;
+  };
+
+  const deleteVault = (vaultId) => {
+    if (vaultId === 'general') {
+      addToast('No se puede eliminar la Caja Principal', 'error', 'Acción no permitida');
+      return;
+    }
+    const target = vaults.find((v) => v.id === vaultId);
+    const updatedVaults = vaults.filter((v) => v.id !== vaultId);
+    setVaultsState(updatedVaults);
+
+    // Mover transacciones asociadas a la caja general
+    setTransactions((prev) =>
+      prev.map((t) => (t.vaultId === vaultId ? { ...t, vaultId: 'general' } : t))
+    );
+
+    if (target) {
+      addToast(`Caja "${target.name}" eliminada. Movimientos reasignados a Caja General`, 'info', 'Caja Eliminada');
+    }
+    if (isCloudConfigured) {
+      saveCloudSettings({ initialCapital, currency, monthlyExpenseLimit, vaults: updatedVaults, partners, capitalReserves, distributions });
+    }
+  };
+
+  // Cálculo de Reparto 60% Empresa / 10% Reserva / 30% Bolsa de Trabajo (Socios)
+  const calculateProfitDistribution = (netProfit, p1WorkPct = 50) => {
+    const profit = Math.max(Number(netProfit) || 0, 0);
+    const p1Pct = Math.min(Math.max(Number(p1WorkPct) || 0, 0), 100);
+    const p2Pct = 100 - p1Pct;
+
+    const companyAmount = profit * 0.60;
+    const reserveAmount = profit * 0.10;
+    const workBagTotal = profit * 0.30;
+
+    const partner1Amount = workBagTotal * (p1Pct / 100);
+    const partner2Amount = workBagTotal * (p2Pct / 100);
+
+    return {
+      netProfit: profit,
+      companyAmount,
+      reserveAmount,
+      workBagTotal,
+      partner1Pct: p1Pct,
+      partner2Pct: p2Pct,
+      partner1Amount,
+      partner2Amount
+    };
+  };
+
+  // Ejecutar y Registrar una Liquidación de Ganancias
+  const executeDistribution = ({ vaultId, vaultName, netProfit, p1WorkPct, notes }) => {
+    const calc = calculateProfitDistribution(netProfit, p1WorkPct);
+    const record = {
+      id: 'dist-' + Date.now().toString(36),
+      date: new Date().toISOString(),
+      vaultId: vaultId || 'general',
+      vaultName: vaultName || 'Caja General',
+      netProfit: calc.netProfit,
+      companyAmount: calc.companyAmount,
+      reserveAmount: calc.reserveAmount,
+      workBagTotal: calc.workBagTotal,
+      partner1Name: partners.partner1,
+      partner2Name: partners.partner2,
+      partner1Pct: calc.partner1Pct,
+      partner2Pct: calc.partner2Pct,
+      partner1Amount: calc.partner1Amount,
+      partner2Amount: calc.partner2Amount,
+      notes: notes || ''
+    };
+
+    const newReserves = capitalReserves + calc.reserveAmount;
+    setCapitalReservesState(newReserves);
+
+    const updatedDistributions = [record, ...distributions];
+    setDistributionsState(updatedDistributions);
+
+    addToast(
+      `Liquidación ejecutada: ${formatMoney(calc.partner1Amount)} para ${partners.partner1} y ${formatMoney(calc.partner2Amount)} para ${partners.partner2}`,
+      'success',
+      '¡Reparto de Ganancias Registrado!'
+    );
+
+    if (isCloudConfigured) {
+      saveCloudSettings({
+        initialCapital,
+        currency,
+        monthlyExpenseLimit,
+        vaults,
+        partners,
+        capitalReserves: newReserves,
+        distributions: updatedDistributions
+      });
+    }
+
+    return record;
+  };
+
+  // Operaciones de Transacciones
   const setInitialCapital = (amount) => {
     const num = Number(amount) || 0;
     setInitialCapitalState(num);
     addToast(`Capital inicial actualizado a ${formatMoney(num)}`, 'info', 'Capital Modificado');
     if (isCloudConfigured) {
-      saveCloudSettings({ initialCapital: num, currency, monthlyExpenseLimit });
+      saveCloudSettings({ initialCapital: num, currency, monthlyExpenseLimit, vaults, partners, capitalReserves, distributions });
     }
   };
 
@@ -187,7 +365,7 @@ export const FinanceProvider = ({ children }) => {
     setCurrencyState(curr);
     addToast(`Moneda cambiada a ${curr}`, 'info', 'Ajuste de Moneda');
     if (isCloudConfigured) {
-      saveCloudSettings({ initialCapital, currency: curr, monthlyExpenseLimit });
+      saveCloudSettings({ initialCapital, currency: curr, monthlyExpenseLimit, vaults, partners, capitalReserves, distributions });
     }
   };
 
@@ -196,7 +374,7 @@ export const FinanceProvider = ({ children }) => {
     setMonthlyExpenseLimitState(num);
     addToast(`Límite de gasto ajustado a ${formatMoney(num)}`, 'info', 'Límite Configurado');
     if (isCloudConfigured) {
-      saveCloudSettings({ initialCapital, currency, monthlyExpenseLimit: num });
+      saveCloudSettings({ initialCapital, currency, monthlyExpenseLimit: num, vaults, partners, capitalReserves, distributions });
     }
   };
 
@@ -208,7 +386,8 @@ export const FinanceProvider = ({ children }) => {
       amount: Number(newTx.amount) || 0,
       category: newTx.category || 'Otros',
       description: newTx.description || '',
-      paymentMethod: newTx.paymentMethod || 'Efectivo 💵'
+      paymentMethod: newTx.paymentMethod || 'Efectivo 💵',
+      vaultId: newTx.vaultId || 'general'
     };
 
     setTransactions((prev) => [transactionItem, ...prev]);
@@ -225,15 +404,20 @@ export const FinanceProvider = ({ children }) => {
   };
 
   const updateTransaction = (updatedTx) => {
+    const item = {
+      ...updatedTx,
+      vaultId: updatedTx.vaultId || 'general'
+    };
+
     setTransactions((prev) =>
-      prev.map((t) => (t.id === updatedTx.id ? { ...t, ...updatedTx } : t))
+      prev.map((t) => (t.id === item.id ? { ...t, ...item } : t))
     );
 
     if (isCloudConfigured) {
-      saveCloudTransaction(updatedTx);
+      saveCloudTransaction(item);
     }
 
-    addToast(`Movimiento de ${formatMoney(updatedTx.amount)} actualizado`, 'success', 'Registro Editado');
+    addToast(`Movimiento de ${formatMoney(item.amount)} actualizado`, 'success', 'Registro Editado');
   };
 
   const deleteTransaction = (id) => {
@@ -249,7 +433,6 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  // Guardar configuración de Firebase desde el modal de ajustes
   const saveFirebaseCustomConfig = (configObj) => {
     try {
       localStorage.setItem('finanzas_pro_firebase_config', JSON.stringify(configObj));
@@ -269,7 +452,7 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  // Cálculos dinámicos
+  // Cálculos de Totales y Cajas
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -281,7 +464,15 @@ export const FinanceProvider = ({ children }) => {
   const currentBalance = initialCapital + totalIncome - totalExpense;
   const netCashFlow = totalIncome - totalExpense;
 
-  // Estadísticas clave
+  // Estadísticas clave por caja
+  const getVaultSummary = (vaultId) => {
+    const vaultTxs = transactions.filter((t) => t.vaultId === vaultId || (!t.vaultId && vaultId === 'general'));
+    const income = vaultTxs.filter((t) => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0);
+    const expense = vaultTxs.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0);
+    const netProfit = income - expense;
+    return { income, expense, netProfit, count: vaultTxs.length };
+  };
+
   const highestIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((max, t) => (t.amount > (max?.amount || 0) ? t : max), null);
@@ -302,22 +493,22 @@ export const FinanceProvider = ({ children }) => {
       maximumFractionDigits: 2
     }).format(num);
 
-    if (currency === '₡') {
-      return `₡${formatted}`;
-    } else if (currency === '$') {
-      return `$${formatted}`;
-    } else if (currency === '€') {
-      return `€${formatted}`;
-    }
+    if (currency === '₡') return `₡${formatted}`;
+    if (currency === '$') return `$${formatted}`;
+    if (currency === '€') return `€${formatted}`;
     return `${currency} ${formatted}`;
   };
 
-  // Exportar a JSON
+  // Exportar / Importar
   const exportDataJSON = () => {
     const data = {
       initialCapital,
       currency,
       monthlyExpenseLimit,
+      vaults,
+      partners,
+      capitalReserves,
+      distributions,
       transactions,
       exportedAt: new Date().toISOString()
     };
@@ -331,22 +522,25 @@ export const FinanceProvider = ({ children }) => {
     addToast('Archivo de copia de seguridad descargado', 'success', 'Respaldo Generado');
   };
 
-  // Exportar a CSV
   const exportDataCSV = () => {
     if (transactions.length === 0) {
       addToast('No hay transacciones para exportar', 'error', 'Error de Exportación');
       return;
     }
-    const headers = ['ID', 'Fecha', 'Tipo', 'Monto', 'Categoría', 'Descripción', 'Método de Pago'];
-    const rows = transactions.map((t) => [
-      t.id,
-      new Date(t.date).toLocaleString('es-CR'),
-      t.type === 'income' ? 'Ingreso' : 'Gasto',
-      t.amount,
-      `"${(t.category || '').replace(/"/g, '""')}"`,
-      `"${(t.description || '').replace(/"/g, '""')}"`,
-      `"${(t.paymentMethod || '').replace(/"/g, '""')}"`
-    ]);
+    const headers = ['ID', 'Fecha', 'Caja/Proyecto', 'Tipo', 'Monto', 'Categoría', 'Descripción', 'Método de Pago'];
+    const rows = transactions.map((t) => {
+      const v = vaults.find((v) => v.id === t.vaultId);
+      return [
+        t.id,
+        new Date(t.date).toLocaleString('es-CR'),
+        `"${(v?.name || 'General').replace(/"/g, '""')}"`,
+        t.type === 'income' ? 'Ingreso' : 'Gasto',
+        t.amount,
+        `"${(t.category || '').replace(/"/g, '""')}"`,
+        `"${(t.description || '').replace(/"/g, '""')}"`,
+        `"${(t.paymentMethod || '').replace(/"/g, '""')}"`
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -359,22 +553,18 @@ export const FinanceProvider = ({ children }) => {
     addToast('Reporte en formato CSV generado exitosamente', 'success', 'CSV Descargado');
   };
 
-  // Importar JSON
   const importDataJSON = (jsonString) => {
     try {
       const data = JSON.parse(jsonString);
-      if (typeof data.initialCapital === 'number') {
-        setInitialCapitalState(data.initialCapital);
-      }
-      if (data.currency) {
-        setCurrencyState(data.currency);
-      }
-      if (typeof data.monthlyExpenseLimit === 'number') {
-        setMonthlyExpenseLimitState(data.monthlyExpenseLimit);
-      }
-      if (Array.isArray(data.transactions)) {
-        setTransactions(data.transactions);
-      }
+      if (typeof data.initialCapital === 'number') setInitialCapitalState(data.initialCapital);
+      if (data.currency) setCurrencyState(data.currency);
+      if (typeof data.monthlyExpenseLimit === 'number') setMonthlyExpenseLimitState(data.monthlyExpenseLimit);
+      if (Array.isArray(data.vaults)) setVaultsState(data.vaults);
+      if (data.partners) setPartnersState(data.partners);
+      if (typeof data.capitalReserves === 'number') setCapitalReservesState(data.capitalReserves);
+      if (Array.isArray(data.distributions)) setDistributionsState(data.distributions);
+      if (Array.isArray(data.transactions)) setTransactions(data.transactions);
+
       addToast('Datos e historial restaurados correctamente', 'success', 'Respaldo Cargado');
       return { success: true };
     } catch (e) {
@@ -384,12 +574,15 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  // Reset
   const resetAllData = () => {
     setInitialCapitalState(0);
     setTransactions([]);
+    setCapitalReservesState(0);
+    setDistributionsState([]);
     localStorage.removeItem('finanzas_pro_capital');
     localStorage.removeItem('finanzas_pro_transactions');
+    localStorage.removeItem('finanzas_pro_reserves');
+    localStorage.removeItem('finanzas_pro_distributions');
     addToast('Se han eliminado todos los movimientos del sistema', 'info', 'Base Restablecida');
   };
 
@@ -402,6 +595,16 @@ export const FinanceProvider = ({ children }) => {
         setCurrency,
         monthlyExpenseLimit,
         setMonthlyExpenseLimit,
+        vaults,
+        addVault,
+        deleteVault,
+        getVaultSummary,
+        partners,
+        setPartners,
+        capitalReserves,
+        distributions,
+        calculateProfitDistribution,
+        executeDistribution,
         transactions,
         addTransaction,
         updateTransaction,

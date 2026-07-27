@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useFinance, DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES, PAYMENT_METHODS } from '../context/FinanceContext';
-import { X, Edit3, TrendingUp, TrendingDown, Calendar, Tag, CreditCard, AlignLeft, Check } from 'lucide-react';
+import { X, Edit3, TrendingUp, TrendingDown, Calendar, Tag, CreditCard, AlignLeft, Check, Package } from 'lucide-react';
 
 export const EditTransactionModal = ({ isOpen, onClose, transaction }) => {
-  const { updateTransaction, currency } = useFinance();
+  const { updateTransaction, currency, vaults } = useFinance();
 
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [vaultId, setVaultId] = useState('general');
   const [date, setDate] = useState('');
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export const EditTransactionModal = ({ isOpen, onClose, transaction }) => {
       setCategory(transaction.category);
       setDescription(transaction.description || '');
       setPaymentMethod(transaction.paymentMethod || PAYMENT_METHODS[0]);
+      setVaultId(transaction.vaultId || 'general');
       setDate(transaction.date ? new Date(transaction.date).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
     }
   }, [transaction, isOpen]);
@@ -36,6 +38,7 @@ export const EditTransactionModal = ({ isOpen, onClose, transaction }) => {
       category,
       description: description.trim(),
       paymentMethod,
+      vaultId,
       date: new Date(date).toISOString()
     });
 
@@ -46,10 +49,10 @@ export const EditTransactionModal = ({ isOpen, onClose, transaction }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-lg glass-panel rounded-3xl border border-white/15 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg glass-panel rounded-3xl border border-white/15 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-slate-900/60">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-slate-900/60 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center">
               <Edit3 className="w-5 h-5" />
@@ -72,7 +75,7 @@ export const EditTransactionModal = ({ isOpen, onClose, transaction }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
           
           {/* TYPE TOGGLE */}
           <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10">
@@ -101,6 +104,25 @@ export const EditTransactionModal = ({ isOpen, onClose, transaction }) => {
               <TrendingDown className="w-4 h-4" />
               <span>Gasto 📉</span>
             </button>
+          </div>
+
+          {/* CAJA / PROYECTO */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-cyan-400" />
+              Caja o Proyecto
+            </label>
+            <select
+              value={vaultId}
+              onChange={(e) => setVaultId(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-900/90 border border-white/15 rounded-2xl text-sm font-medium text-white outline-none"
+            >
+              {vaults.map((v) => (
+                <option key={v.id} value={v.id} className="bg-slate-900 text-slate-100">
+                  {v.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* MONTO */}
