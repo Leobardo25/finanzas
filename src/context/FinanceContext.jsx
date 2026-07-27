@@ -391,7 +391,7 @@ export const FinanceProvider = ({ children }) => {
       category: newTx.category || 'Otros',
       description: newTx.description || '',
       paymentMethod: newTx.paymentMethod || 'Efectivo 💵',
-      vaultId: newTx.vaultId || activeVaultId === 'all' ? 'general' : activeVaultId
+      vaultId: newTx.vaultId || (activeVaultId === 'all' ? 'general' : activeVaultId)
     };
 
     setTransactions((prev) => [transactionItem, ...prev]);
