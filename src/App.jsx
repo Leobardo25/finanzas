@@ -10,6 +10,7 @@ import { TransactionFormModal } from './components/TransactionFormModal';
 import { CapitalModal } from './components/CapitalModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ToastContainer } from './components/Toast';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { Sparkles } from 'lucide-react';
 
 function AppContent() {
@@ -40,19 +41,19 @@ function AppContent() {
       />
 
       {/* Main Dashboard Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 pb-24 md:pb-8">
         
         {/* Banner de Bienvenida / Indicador */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 glass-panel rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/20 via-slate-900/40 to-teal-950/20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 glass-panel rounded-2xl sm:rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/20 via-slate-900/40 to-teal-950/20">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Sparkles className="w-4 h-4 text-emerald-400" />
-              <h2 className="text-lg font-bold text-white font-['Outfit']">
+              <h2 className="text-base sm:text-lg font-bold text-white font-['Outfit']">
                 Panel de Control & Gestión Financiera
               </h2>
             </div>
             <p className="text-xs text-slate-400">
-              Registra tu capital base, controla el flujo de entradas (ingresos) y salidas (gastos) con alertas de presupuesto en tiempo real.
+              Registra tu capital base, controla el flujo de entradas y salidas con alertas de presupuesto en tiempo real.
             </p>
           </div>
           <button
@@ -69,16 +70,23 @@ function AppContent() {
         {/* Cards de Métricas Principales */}
         <SummaryCards onOpenCapitalModal={handleOpenCapitalModal} />
 
-        {/* Barra de Estadísticas Rápidas (Mayor Ingreso, Mayor Gasto, Promedio) */}
+        {/* Barra de Estadísticas Rápidas */}
         <QuickStatsBar />
 
         {/* Gráficos de Flujo y Categorías */}
         <FinancialCharts />
 
-        {/* Tabla de Movimientos / Apuntes de Dinero */}
+        {/* Tabla de Movimientos / Apuntes (Vista Móvil en Tarjetas & Tabla Escritorio) */}
         <TransactionTable onOpenTransactionModal={handleOpenTransactionModal} />
 
       </main>
+
+      {/* Navegación Inferior Móvil (Mobile Bottom Bar) */}
+      <MobileBottomNav
+        onOpenTransactionModal={handleOpenTransactionModal}
+        onOpenSettingsModal={handleOpenSettingsModal}
+        onOpenCapitalModal={handleOpenCapitalModal}
+      />
 
       {/* Modales */}
       <TransactionFormModal
@@ -97,11 +105,11 @@ function AppContent() {
       />
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-6 bg-slate-950/60 mt-12">
+      <footer className="hidden md:block border-t border-white/5 py-6 bg-slate-950/60 mt-12">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>Finanzas Pro 369 — Arquitectura FinTech & Administración</span>
           <span className="flex items-center gap-1">
-            Persistencia Local Segura (localStorage)
+            Sincronización en la Nube (Firebase Firestore)
           </span>
         </div>
       </footer>
