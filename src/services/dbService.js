@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDoc,
   setDoc,
   deleteDoc,
   query,
@@ -16,7 +17,10 @@ const COLLECTION_SETTINGS = 'finanzas_settings';
 // Escuchar cambios en la nube en tiempo real
 export const subscribeToCloudTransactions = (onDataChange, onError) => {
   const { db, isConfigured } = initFirebase();
-  if (!isConfigured || !db) return null;
+  if (!isConfigured || !db) {
+    console.warn('[Firestore] No configurado — los datos se guardan solo en localStorage');
+    return null;
+  }
 
   try {
     const q = query(collection(db, COLLECTION_TRANSACTIONS), orderBy('date', 'desc'));
@@ -24,31 +28,31 @@ export const subscribeToCloudTransactions = (onDataChange, onError) => {
       q,
       (snapshot) => {
         const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        console.log(`[Firestore] Sincronizados ${docs.length} movimientos desde la nube`);
         onDataChange(docs);
       },
       (err) => {
-        console.error('Error en suscripción Firestore:', err);
+        console.error('[Firestore] Error en suscripción:', err.code, err.message);
+        if (err.code === 'permission-denied') {
+          console.error(
+            '[Firestore] ⛔ PERMISO DENEGADO — Las reglas de seguridad de Firestore están bloqueando el acceso.\n' +
+            'Ve a Firebase Console → Firestore → Rules y configura:\n' +
+            'rules_version = "2";\n' +
+            'service cloud.firestore {\n' +
+            '  match /databases/{database}/documents {\n' +
+            '    match /{document=**} {\n' +
+            '      allow read, write: if true;\n' +
+            '    }\n' +
+            '  }\n' +
+            '}'
+          );
+        }
         if (onError) onError(err);
       }
     );
     return unsubscribe;
   } catch (err) {
-    console.error('Error suscribiendo a Firestore:', err);
-    return null;
-  }
-};
-
-// Obtener una vez todas las transacciones de la nube
-export const getCloudTransactions = async () => {
-  const { db, isConfigured } = initFirebase();
-  if (!isConfigured || !db) return null;
-
-  try {
-    const q = query(collection(db, COLLECTION_TRANSACTIONS), orderBy('date', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch (err) {
-    console.error('Error obteniendo transacciones de Firestore:', err);
+    console.error('[Firestore] Error creando suscripción:', err);
     return null;
   }
 };
@@ -61,10 +65,12 @@ export const saveCloudTransaction = async (tx) => {
   try {
     const docRef = doc(db, COLLECTION_TRANSACTIONS, tx.id);
     await setDoc(docRef, { ...tx, updatedAt: new Date().toISOString() }, { merge: true });
+    console.log(`[Firestore] ✓ Guardado: ${tx.id} (${tx.type} ${tx.amount})`);
     return true;
   } catch (err) {
-    console.error('Error guardando transacción en Firestore:', err);
-    return false;
+    console.error('[Firestore] ✗ Error guardando:', err.code, err.message);
+    // Retornamos el error para que el contexto pueda mostrar un toast
+    return { error: true, code: err.code, message: err.message };
   }
 };
 
@@ -76,14 +82,15 @@ export const deleteCloudTransaction = async (id) => {
   try {
     const docRef = doc(db, COLLECTION_TRANSACTIONS, id);
     await deleteDoc(docRef);
+    console.log(`[Firestore] ✓ Eliminado: ${id}`);
     return true;
   } catch (err) {
-    console.error('Error eliminando de Firestore:', err);
-    return false;
+    console.error('[Firestore] ✗ Error eliminando:', err.code, err.message);
+    return { error: true, code: err.code, message: err.message };
   }
 };
 
-// Guardar configuración general (Capital, Moneda, Límite de Gasto) en Firestore
+// Guardar configuración general en Firestore
 export const saveCloudSettings = async (settings) => {
   const { db, isConfigured } = initFirebase();
   if (!isConfigured || !db) return false;
@@ -91,10 +98,11 @@ export const saveCloudSettings = async (settings) => {
   try {
     const docRef = doc(db, COLLECTION_SETTINGS, 'config_main');
     await setDoc(docRef, { ...settings, updatedAt: new Date().toISOString() }, { merge: true });
+    console.log('[Firestore] ✓ Configuración guardada en la nube');
     return true;
   } catch (err) {
-    console.error('Error guardando configuración en Firestore:', err);
-    return false;
+    console.error('[Firestore] ✗ Error guardando config:', err.code, err.message);
+    return { error: true, code: err.code, message: err.message };
   }
 };
 
@@ -105,11 +113,14 @@ export const getCloudSettings = async () => {
 
   try {
     const docRef = doc(db, COLLECTION_SETTINGS, 'config_main');
-    const snapshot = await getDocs(collection(db, COLLECTION_SETTINGS));
-    const mainDoc = snapshot.docs.find((d) => d.id === 'config_main');
-    return mainDoc ? mainDoc.data() : null;
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      console.log('[Firestore] ✓ Configuración cargada de la nube');
+      return snapshot.data();
+    }
+    return null;
   } catch (err) {
-    console.error('Error obteniendo configuración de Firestore:', err);
+    console.error('[Firestore] ✗ Error leyendo config:', err.code, err.message);
     return null;
   }
 };

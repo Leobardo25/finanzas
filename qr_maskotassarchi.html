@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR - Maskotas Sarchi</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0f0f0f;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+    }
+    .card {
+      background: #1a1a2e;
+      border-radius: 24px;
+      padding: 48px 40px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 80px rgba(99,102,241,.08);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    #qr-container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+    }
+    #qr-container canvas { display: block; }
+    .url {
+      font-size: 14px;
+      color: rgba(255,255,255,.45);
+      letter-spacing: .5px;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .btn {
+      margin-top: 8px;
+      padding: 12px 32px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(99,102,241,.35);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Maskotas Sarchi</h2>
+    <div id="qr-container"></div>
+    <span class="url">maskotassarchi.com</span>
+    <button class="btn" onclick="downloadQR()">Descargar QR</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script>
+    // Generar QR
+    const qr = qrcode(0, 'M');
+    qr.addData('https://maskotassarchi.com/');
+    qr.make();
+
+    const container = document.getElementById('qr-container');
+    const cellSize = 6;
+    const margin = 0;
+    const size = qr.getModuleCount();
+    const canvas = document.createElement('canvas');
+    const px = (size * cellSize) + (margin * 2);
+    canvas.width = px;
+    canvas.height = px;
+    const ctx = canvas.getContext('2d');
+
+    // Fondo blanco
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, px, px);
+
+    // Módulos del QR
+    ctx.fillStyle = '#1a1a2e';
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (qr.isDark(row, col)) {
+          ctx.fillRect(
+            margin + col * cellSize,
+            margin + row * cellSize,
+            cellSize, cellSize
+          );
+        }
+      }
+    }
+    container.appendChild(canvas);
+
+    function downloadQR() {
+      const link = document.createElement('a');
+      link.download = 'qr_maskotassarchi.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+  </script>
+</body>
+</html>

@@ -179,7 +179,16 @@ export const FinanceProvider = ({ children }) => {
             setTransactions(cloudDocs);
           }
         },
-        (err) => console.error(err)
+        (err) => {
+          console.error('[Firestore] Error:', err);
+          if (err.code === 'permission-denied') {
+            addToast(
+              'Firestore bloqueó el acceso. Revisa las reglas de seguridad en Firebase Console.',
+              'error',
+              '⛔ Error de Permisos en la Nube'
+            );
+          }
+        }
       );
 
       getCloudSettings().then((remoteSettings) => {
@@ -397,7 +406,15 @@ export const FinanceProvider = ({ children }) => {
     setTransactions((prev) => [transactionItem, ...prev]);
 
     if (isCloudConfigured) {
-      saveCloudTransaction(transactionItem);
+      saveCloudTransaction(transactionItem).then((result) => {
+        if (result && result.error) {
+          addToast(
+            `Los datos se guardaron localmente pero NO llegaron a Firebase: ${result.code || 'error desconocido'}`,
+            'error',
+            '⚠️ Nube No Sincronizada'
+          );
+        }
+      });
     }
 
     if (newTx.type === 'income') {
