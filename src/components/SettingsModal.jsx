@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { X, Settings, Download, Upload, Trash2, Coins, AlertTriangle, ShieldCheck, Target, Check, Cloud, Key, Globe } from 'lucide-react';
+import { X, Settings, Download, Upload, Trash2, Coins, AlertTriangle, ShieldCheck, Target, Check, Cloud, Key, Globe, CloudUpload, Loader2 } from 'lucide-react';
 
 export const SettingsModal = ({ isOpen, onClose }) => {
   const {
@@ -12,7 +12,8 @@ export const SettingsModal = ({ isOpen, onClose }) => {
     importDataJSON,
     resetAllData,
     isCloudConfigured,
-    saveFirebaseCustomConfig
+    saveFirebaseCustomConfig,
+    pushAllDataToCloud
   } = useFinance();
 
   const [limitInput, setLimitInput] = useState('');
@@ -20,6 +21,7 @@ export const SettingsModal = ({ isOpen, onClose }) => {
   const [apiKey, setApiKey] = useState('');
   const [projectId, setProjectId] = useState('');
   const [authDomain, setAuthDomain] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -116,9 +118,41 @@ export const SettingsModal = ({ isOpen, onClose }) => {
                   ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
                   : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
               }`}>
-                {isCloudConfigured ? '☁️ Conectado a la Nube' : '💾 Guardado Local (IndexedDB/localStorage)'}
+                {isCloudConfigured ? '☁️ Conectado a la Nube' : '💾 Guardado Local'}
               </span>
             </div>
+
+            {/* BOTÓN: Subir todo a la nube */}
+            {isCloudConfigured && (
+              <button
+                onClick={async () => {
+                  if (isSyncing) return;
+                  setIsSyncing(true);
+                  await pushAllDataToCloud();
+                  setIsSyncing(false);
+                }}
+                disabled={isSyncing}
+                className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Subiendo datos...
+                  </>
+                ) : (
+                  <>
+                    <CloudUpload className="w-4 h-4" />
+                    Subir TODOS los datos locales a Firebase
+                  </>
+                )}
+              </button>
+            )}
+
+            {!isCloudConfigured && (
+              <p className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                ⚠️ Tus datos se guardan SOLO en este navegador (localStorage). Si limpias caché o cambias de dispositivo, los pierdes. Configura Firebase abajo para sincronizar.
+              </p>
+            )}
 
             <p className="text-xs text-slate-400 leading-relaxed">
               Al desplegar tu sitio en Netlify, puedes usar las Variables de Entorno (<code>VITE_FIREBASE_API_KEY</code> y <code>VITE_FIREBASE_PROJECT_ID</code>) para sincronizar en vivo.

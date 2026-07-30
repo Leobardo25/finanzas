@@ -473,6 +473,67 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
+  // MIGRACIÓN: Subir TODOS los datos locales a Firestore de un golpe
+  const pushAllDataToCloud = async () => {
+    const { db, isConfigured } = initFirebase();
+    if (!isConfigured || !db) {
+      addToast('Firebase no está configurado. Conecta primero las credenciales.', 'error', 'Sin conexión a la nube');
+      return { success: false };
+    }
+
+    addToast('Subiendo datos a la nube... espera un momento.', 'info', '☁️ Sincronizando');
+
+    let errCount = 0;
+    let okCount = 0;
+
+    // 1. Subir TODAS las transacciones (las originales, no las filtradas)
+    for (const tx of transactions) {
+      const result = await saveCloudTransaction(tx);
+      if (result === true) {
+        okCount++;
+      } else {
+        errCount++;
+        console.error('[Migración] Falló tx:', tx.id, result);
+      }
+    }
+
+    // 2. Subir settings (capital, moneda, cajas, socios, reservas, historial)
+    const settingsResult = await saveCloudSettings({
+      initialCapital,
+      currency,
+      monthlyExpenseLimit,
+      vaults,
+      partners,
+      capitalReserves,
+      distributions
+    });
+
+    if (errCount > 0) {
+      addToast(
+        `Se subieron ${okCount} movimientos pero ${errCount} fallaron. Revisa las reglas de Firestore.`,
+        'error',
+        '⚠️ Migración parcial'
+      );
+      return { success: false, ok: okCount, errors: errCount };
+    }
+
+    if (settingsResult !== true) {
+      addToast(
+        `Los ${okCount} movimientos subieron pero la configuración falló. Revisa las reglas de Firestore.`,
+        'warning',
+        '⚠️ Config no subió'
+      );
+      return { success: false, ok: okCount, errors: 0 };
+    }
+
+    addToast(
+      `¡${okCount} movimientos y toda la configuración subidos a Firebase exitosamente!`,
+      'success',
+      '✅ Migración Completa'
+    );
+    return { success: true, ok: okCount, errors: 0 };
+  };
+
   // CÁLCULOS DINÁMICOS SEGÚN CAJA ACTIVA ('all' vs 'vaultId')
   const filteredTransactions = transactions.filter((t) => {
     if (activeVaultId === 'all') return true;
@@ -658,7 +719,8 @@ export const FinanceProvider = ({ children }) => {
         addToast,
         removeToast,
         isCloudConfigured,
-        saveFirebaseCustomConfig
+        saveFirebaseCustomConfig,
+        pushAllDataToCloud
       }}
     >
       {children}
